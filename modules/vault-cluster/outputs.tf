@@ -35,5 +35,5 @@ output "security_group_id" {
 #}
 
 output "s3_bucket_arn" {
-  value = "${join(",", module.s3_repl.s3_bucket_arn)}"
+  value = "${module.s3_repl.s3_bucket_arn}"
 }
