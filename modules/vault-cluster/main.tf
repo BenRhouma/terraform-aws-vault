@@ -227,30 +227,32 @@ data "aws_iam_policy_document" "vault_kms" {
   }
 
 }
-#resource "aws_s3_bucket" "vault_storage" {
-#  count         = "${var.enable_s3_backend ? 1 : 0}"
-#  bucket        = "${var.s3_bucket_name}"
-#  force_destroy = "${var.force_destroy_s3_bucket}"
 
-#  tags {
-#    Description = "Used for secret storage with Vault. DO NOT DELETE this Bucket unless you know what you are doing."
-#  }
-#}
-
-module "s3_repl" {
-  source = "git::https://github.com/Cimpress-MCP/terraform.git//s3_replication"
-  
-  main_bucket_name = "${var.s3_bucket_name}"
-
-  replication_bucket_name = "${var.s3_bucket_name}-repl"
-
-  replica_region = "${var.s3_replica_region}"
-
+resource "aws_s3_bucket" "vault_storage" {
+  count         = "${var.enable_s3_backend ? 1 : 0}"
+  bucket        = "${var.s3_bucket_name}"
   force_destroy = "${var.force_destroy_s3_bucket}"
 
-  access_roles_name = ["${aws_iam_role.instance_role.name}"]
+  tags {
+    Description = "Used for secret storage with Vault. DO NOT DELETE this Bucket unless you know what you are doing."
+  }
 }
 
+ 
+#module "s3_repl" {
+#  source = "git::https://github.com/Cimpress-MCP/terraform.git//s3_replication"
+#  
+#  main_bucket_name = "${var.s3_bucket_name}"
+#
+#  replication_bucket_name = "${var.s3_bucket_name}-repl"
+#
+#  replica_region = "${var.s3_replica_region}"
+#
+#  force_destroy = "${var.force_destroy_s3_bucket}"
+#
+#  access_roles_name = ["${aws_iam_role.instance_role.name}"]
+#}
+  
 resource "aws_iam_role_policy" "vault_s3" {
   count  = "${var.enable_s3_backend ? 1 : 0}"
   name   = "vault_s3"
@@ -265,8 +267,8 @@ data "aws_iam_policy_document" "vault_s3" {
     actions = ["s3:*"]
 
     resources = [
-      "${module.s3_repl.s3_bucket_arn}",
-      "${module.s3_repl.s3_bucket_arn}/*",
+      "${aws_s3_bucket.vault_storage.arn}",
+      "${aws_s3_bucket.vault_storage.arn}/*",
     ]
   }
 }
