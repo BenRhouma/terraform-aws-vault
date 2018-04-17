@@ -182,6 +182,11 @@ variable "enable_s3_backend" {
   default     = false
 }
 
+variable "enable_s3_replication" {
+  description = "Whether to configure the S3 bucket to be replicated to other regions"
+  default     = false
+}
+
 variable "s3_bucket_name" {
   description = "The name of the S3 bucket to create and use as a storage backend. Only used if 'enable_s3_backend' is set to true."
   default     = ""

@@ -171,15 +171,16 @@ resource "aws_iam_role" "instance_role" {
 
 data "aws_iam_policy_document" "instance_role" {
   statement {
-    sid = "1"
+    sid     = "1"
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
 
     principals {
-      type        = "Service"
+      type = "Service"
+
       identifiers = [
-        "ec2.amazonaws.com", 
-        "ssm.amazonaws.com"
+        "ec2.amazonaws.com",
+        "ssm.amazonaws.com",
       ]
     }
   }
@@ -192,21 +193,22 @@ resource "aws_iam_role_policy" "vault_kms" {
 }
 
 data "aws_iam_policy_document" "vault_kms" {
-
   statement {
     effect = "Allow"
+
     actions = [
       "ssm:*",
-      "ec2messages:*"
+      "ec2messages:*",
     ]
 
     resources = [
-       "*"
+      "*",
     ]
   }
-  
+
   statement {
     effect = "Allow"
+
     actions = [
       "kms:CreateAlias",
       "kms:CreateKey",
@@ -218,14 +220,13 @@ data "aws_iam_policy_document" "vault_kms" {
       "kms:UntagResource",
       "kms:List*",
       "kms:Decrypt",
-      "kms:Encrypt"
+      "kms:Encrypt",
     ]
-  
-    resources = [
-      "${data.aws_kms_alias.vault.arn}"
-      ]
-  }
 
+    resources = [
+      "${data.aws_kms_alias.vault.arn}",
+    ]
+  }
 }
 
 resource "aws_s3_bucket" "vault_storage" {
@@ -238,21 +239,22 @@ resource "aws_s3_bucket" "vault_storage" {
   }
 }
 
- 
-#module "s3_repl" {
-#  source = "git::https://github.com/Cimpress-MCP/terraform.git//s3_replication"
-#  
-#  main_bucket_name = "${var.s3_bucket_name}"
-#
-#  replication_bucket_name = "${var.s3_bucket_name}-repl"
-#
-#  replica_region = "${var.s3_replica_region}"
-#
-#  force_destroy = "${var.force_destroy_s3_bucket}"
-#
-#  access_roles_name = ["${aws_iam_role.instance_role.name}"]
-#}
-  
+module "s3_repl" {
+  count = "${var.enable_s3_replication ? 1 : 0}"
+
+  source = "git::https://github.com/Cimpress-MCP/terraform.git//s3_replication"
+
+  main_bucket_name = "${var.s3_bucket_name}"
+
+  replication_bucket_name = "${var.s3_bucket_name}-repl"
+
+  replica_region = "${var.s3_replica_region}"
+
+  force_destroy = "${var.force_destroy_s3_bucket}"
+
+  access_roles_name = ["${aws_iam_role.instance_role.name}"]
+}
+
 resource "aws_iam_role_policy" "vault_s3" {
   count  = "${var.enable_s3_backend ? 1 : 0}"
   name   = "vault_s3"
@@ -261,7 +263,29 @@ resource "aws_iam_role_policy" "vault_s3" {
 }
 
 data "aws_iam_policy_document" "vault_s3" {
+  count = "${var.enable_s3_backend ? 1 : 0}"
+
+  statement {
+    effect  = "Allow"
+    actions = ["s3:*"]
+
+    resources = [
+      "${aws_s3_bucket.vault_storage.arn}",
+      "${aws_s3_bucket.vault_storage.arn}/*",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "s3_replication" {
   count  = "${var.enable_s3_backend ? 1 : 0}"
+  name   = "s3_replication"
+  role   = "${aws_iam_role.instance_role.id}"
+  policy = "${element(concat(data.aws_iam_policy_document.s3_repl.*.json, list("")), 0)}"
+}
+
+data "aws_iam_policy_document" "s3_repl" {
+  count = "${var.enable_s3_replication ? 1 : 0}"
+
   statement {
     effect  = "Allow"
     actions = ["s3:*"]
