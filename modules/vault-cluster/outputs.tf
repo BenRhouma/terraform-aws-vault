@@ -33,3 +33,7 @@ output "security_group_id" {
 output "s3_bucket_arn" {
   value = "${join(",", aws_s3_bucket.vault_storage.*.arn)}"
 }
+
+#output "s3_bucket_arn" {
+#  value = "${module.s3_repl.s3_bucket_arn}"
+#}
