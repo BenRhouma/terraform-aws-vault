@@ -31,7 +31,6 @@ resource "aws_elb" "vault" {
   connection_draining_timeout = "${var.connection_draining_timeout}"
 
   security_groups    = ["${aws_security_group.vault.id}"]
-  availability_zones = ["${var.availability_zones}"]
   subnets            = ["${var.subnet_ids}"]
 
   access_logs {
@@ -59,6 +58,15 @@ resource "aws_elb" "vault" {
   tags {
     Name = "${var.name}"
   }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# ATTACH THE ELB TO THE VAULT ASG
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "aws_autoscaling_attachment" "vault" {
+  autoscaling_group_name = "${var.vault_asg_name}"
+  elb                    = "${aws_elb.vault.id}"
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
