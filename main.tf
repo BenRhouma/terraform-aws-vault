@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------------------------------------------------
 # DEPLOY A VAULT SERVER CLUSTER, AN ELB, AND A CONSUL SERVER CLUSTER IN AWS
-# This is an example of how to use the vault-cluster and vault-elb modules to deploy a Vault cluster in AWS with an 
-# Elastic Load Balancer (ELB) in front of it. This cluster uses Consul, running in a separate cluster, as its storage 
+# This is an example of how to use the vault-cluster and vault-elb modules to deploy a Vault cluster in AWS with an
+# Elastic Load Balancer (ELB) in front of it. This cluster uses Consul, running in a separate cluster, as its storage
 # backend.
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -71,9 +71,6 @@ module "vault_cluster" {
   vpc_id     = "${data.aws_vpc.default.id}"
   subnet_ids = "${data.aws_subnet_ids.default.ids}"
 
-  # Tell each Vault server to register in the ELB.
-  load_balancers = ["${module.vault_elb.load_balancer_name}"]
-
   # Do NOT use the ELB for the ASG health check, or the ASG will assume all sealed instances are unhealthy and
   # repeatedly try to redeploy them.
   health_check_type = "EC2"
@@ -94,7 +91,7 @@ module "vault_cluster" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 module "consul_iam_policies_servers" {
-  source = "github.com/hashicorp/terraform-aws-consul//modules/consul-iam-policies?ref=v0.0.2"
+  source = "github.com/hashicorp/terraform-aws-consul//modules/consul-iam-policies?ref=v0.3.3"
 
   iam_role_id = "${module.vault_cluster.iam_role_id}"
 }
@@ -115,6 +112,23 @@ data "template_file" "user_data_vault_cluster" {
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
+# PERMIT CONSUL SPECIFIC TRAFFIC IN VAULT CLUSTER
+# To allow our Vault servers consul agents to communicate with other consul agents and participate in the LAN gossip,
+# we open up the consul specific protocols and ports for consul traffic
+# ---------------------------------------------------------------------------------------------------------------------
+
+module "security_group_rules" {
+  source = "github.com/hashicorp/terraform-aws-consul.git//modules/consul-client-security-group-rules?ref=v0.3.3"
+
+  security_group_id           = "${module.vault_cluster.security_group_id}"
+
+  # To make testing easier, we allow requests from any IP address here but in a production deployment, we *strongly*
+  # recommend you limit this to the IP address ranges of known, trusted servers inside your VPC.
+  
+  allowed_inbound_cidr_blocks = ["0.0.0.0/0"]
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
 # DEPLOY THE ELB
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -128,6 +142,9 @@ module "vault_elb" {
 
   vpc_id     = "${data.aws_vpc.default.id}"
   subnet_ids = "${data.aws_subnet_ids.default.ids}"
+
+  # Associate the ELB with the instances created by the Vault Autoscaling group
+  vault_asg_name = "${module.vault_cluster.asg_name}"
 
   # To make testing easier, we allow requests from any IP address here but in a production deployment, we *strongly*
   # recommend you limit this to the IP address ranges of known, trusted servers inside your VPC.
@@ -154,7 +171,7 @@ data "aws_route53_zone" "selected" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 module "consul_cluster" {
-  source = "github.com/hashicorp/terraform-aws-consul//modules/consul-cluster?ref=v0.0.2"
+  source = "github.com/hashicorp/terraform-aws-consul//modules/consul-cluster?ref=v0.3.3"
 
   cluster_name  = "${var.consul_cluster_name}"
   cluster_size  = "${var.consul_cluster_size}"
